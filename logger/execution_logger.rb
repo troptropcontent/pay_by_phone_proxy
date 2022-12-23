@@ -1,7 +1,7 @@
 require "logger"
 class ExecutionLogger
-    def initialize
-       @logger = Logger.new('execution_logs.log') 
+    def initialize 
+       @logger = Logger.new(File.dirname(__FILE__) + "/execution_logs.log") 
     end
 
     def info(message)

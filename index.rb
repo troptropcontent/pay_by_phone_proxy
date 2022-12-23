@@ -1,6 +1,6 @@
 require_relative 'client/pay_by_phone'
-require_relative 'client/execution_logger'
-require "logger"
+require_relative 'logger/execution_logger.rb'
+
 logger = ExecutionLogger.new
 
 logger.info("New process")
