@@ -13,4 +13,8 @@ if coverage
     logger.info("Vehicule covered at this time. Task stopped.")
 else
     logger.info("Vehicule not covered at this time. Renewing ticket for a new period.")
+    puts client.vehicle_id
+    puts client.rate_option_id
+    puts client.quote
+    puts client.payment_method_id
 end
