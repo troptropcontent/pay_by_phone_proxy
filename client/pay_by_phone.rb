@@ -5,9 +5,10 @@ require "net/http"
 require "date"
 
 class PayByPhone
-    def initialize
-        raise "ENV variables are not set" unless env_ready?
-        @tokens = get_tokens    
+    def initialize(logger)
+        @logger = logger
+        check_env
+        @tokens = get_tokens  
     end
 
     def current_tickets
@@ -33,7 +34,7 @@ class PayByPhone
     end
 
     def get_tokens
-        puts "Retrieving Token"
+        @logger.info("Retrieving Token")
         url = URI("https://auth.paybyphoneapis.com/token")
         
         https = Net::HTTP.new(url.host, url.port)
@@ -57,7 +58,7 @@ class PayByPhone
         
         response = https.request(request)
         tokens = JSON.parse(response.read_body)
-        puts "Token retrieved : #{tokens['access_token']}"
+        @logger.info("Token retrieved")
         tokens
     end 
 
@@ -104,6 +105,13 @@ class PayByPhone
 
     def authorization_token
         "Bearer #{@tokens['access_token']}"
+    end
+
+    def check_env
+        unless env_ready?
+            @logger.error("ENV variables are not set") 
+            exit(false)
+        end
     end
 end
 

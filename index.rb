@@ -1,13 +1,16 @@
 require_relative 'client/pay_by_phone'
+require_relative 'client/execution_logger'
+require "logger"
+logger = ExecutionLogger.new
 
-puts "New process"
-client = PayByPhone.new
+logger.info("New process")
+client = PayByPhone.new(logger)
 
-puts "Checking vehicule coverage"
+logger.info("Checking vehicule coverage")
 coverage = client.vehicule_covered?
 
 if coverage
-    puts "Vehicule covered at this time. Task stopped."
+    logger.info("Vehicule covered at this time. Task stopped.")
 else
-    puts "Vehicule not covered at this time. Renewing ticket for a new period."
+    logger.info("Vehicule not covered at this time. Renewing ticket for a new period.")
 end
