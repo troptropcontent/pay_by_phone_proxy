@@ -42,6 +42,10 @@ class PayByPhone
     def payment_method_id
         @payment_method ||= find_payment_method["id"]
     end
+
+    def new_session
+        create_new_session
+    end
    
     private
 
@@ -79,6 +83,7 @@ class PayByPhone
     end 
 
     def get_member_id
+        @logger.info("Retrieving member_id")
         url = URI("https://consumer.paybyphoneapis.com/identity/profileservice/v1/members")
 
         https = Net::HTTP.new(url.host, url.port)
@@ -90,10 +95,12 @@ class PayByPhone
         request["Content-Type"] = "application/json"
 
         response = https.request(request)
+        @logger.info("Member retrieved")
         JSON.parse(response.read_body)["memberId"]
     end
 
     def get_account_id
+        @logger.info("Retrieving account_id")
         url = URI("https://consumer.paybyphoneapis.com/parking/accounts")
 
         https = Net::HTTP.new(url.host, url.port)
@@ -103,10 +110,12 @@ class PayByPhone
         request["Authorization"] = authorization_token
 
         response = https.request(request)
+        @logger.info("Account_id retrieved")
         JSON.parse(response.read_body).dig(0,"id")
     end
 
     def get_current_tickets
+        @logger.info("Retrieving current tickets")
         url = URI("https://consumer.paybyphoneapis.com/parking/accounts/#{account_id}/sessions?periodType=Current")
         https = Net::HTTP.new(url.host, url.port)
         https.use_ssl = true
@@ -116,10 +125,12 @@ class PayByPhone
         request["Content-Type"] = "application/json"
 
         response = https.request(request)
+        @logger.info("Current tickets retrieved")
         JSON.parse(response.read_body)
     end
 
     def get_vehicles
+        @logger.info("Retrieving vehicles")
         url = URI("https://consumer.paybyphoneapis.com/identity/profileservice/v1/members/vehicles/paybyphone")
 
         https = Net::HTTP.new(url.host, url.port)
@@ -130,10 +141,12 @@ class PayByPhone
         request["Content-Type"] = "application/json"
 
         response = https.request(request)
+        @logger.info("Vehicle retrieved")
         JSON.parse(response.read_body)
     end
 
     def get_rate_options
+        @logger.info("Retrieving rate_options")
         uri = URI.parse("https://consumer.paybyphoneapis.com/parking/locations/75018/rateOptions")
         uri.query = URI.encode_www_form({
             parkingAccountId: account_id,
@@ -149,6 +162,7 @@ class PayByPhone
 
 
         response = https.request(request)
+        @logger.info("Rate_options retrieved")
         JSON.parse(response.read_body)
     end
 
@@ -165,6 +179,7 @@ class PayByPhone
     end
 
     def get_quote
+        @logger.info("Requesting a quote")
         url = URI.parse("https://consumer.paybyphoneapis.com/parking/accounts/#{account_id}/quote")
         url.query = URI.encode_www_form({
             locationId: ENV["PAYBYPHONE_ZIPCODE"],
@@ -177,7 +192,7 @@ class PayByPhone
             expireTime: nil,
             parkingAccountId: account_id
         })
-        puts url
+        
         https = Net::HTTP.new(url.host, url.port)
         https.use_ssl = true
 
@@ -186,10 +201,12 @@ class PayByPhone
         request["Content-Type"] = "application/json"
 
         response = https.request(request)
+        @logger.info("Quote obtained")
         JSON.parse(response.read_body)
     end
 
     def get_payment_methods
+        @logger.info("Retrieving payment methods")
         url = URI("https://consumer.paybyphoneapis.com/payment/v3/accounts")
 
         https = Net::HTTP.new(url.host, url.port)
@@ -200,11 +217,60 @@ class PayByPhone
         request["Content-Type"] = "application/json"
 
         response = https.request(request)
+        @logger.info("Payment method retrieved")
         JSON.parse(response.read_body)
     end
 
     def find_payment_method
         get_payment_methods["items"].find{|payment_method| payment_method["maskedCardNumber"] == ENV["PAYBYPHONE_CARDNUMBER"]}
+    end
+
+    def create_new_session
+        @logger.info("Requesting to start a new session")
+        url = URI("https://consumer.paybyphoneapis.com/parking/accounts/#{account_id}/sessions/")
+
+        https = Net::HTTP.new(url.host, url.port)
+        https.use_ssl = true
+
+        request = Net::HTTP::Post.new(url)
+        request["Authorization"] = authorization_token
+        request["Content-Type"] = "application/json"
+        request.body = JSON.dump({
+        "expireTime": nil,
+        "duration": {
+            "quantity": "1",
+            "timeUnit": "days"
+        },
+        "licensePlate": ENV["PAYBYPHONE_LICENSEPLATE"],
+        "locationId": ENV["PAYBYPHONE_ZIPCODE"],
+        "rateOptionId": "75101",
+        "startTime": quote["parkingStartTime"],
+        "quoteId": quote["quoteId"],
+        "parkingAccountId": account_id,
+        "paymentMethod": {
+            "paymentMethodType": "PaymentAccount",
+            "payload": {
+            "paymentAccountId": payment_method_id,
+            "clientBrowserDetails": {
+                "browserAcceptHeader": "text/html",
+                "browserColorDepth": "30",
+                "browserJavaEnabled": "false",
+                "browserLanguage": "fr-FR",
+                "browserScreenHeight": "900",
+                "browserScreenWidth": "1440",
+                "browserTimeZone": "-60",
+                "browserUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+            }
+            }
+        }
+        })
+        response = https.request(request)
+        if response.code == 204
+            @logger.info("New session started") 
+        else
+            @logger.info("An issue occured in the request of a new session")
+        end
+        JSON.parse(response.read_body)
     end
 
     def check_env
